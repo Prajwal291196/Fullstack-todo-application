@@ -1,63 +1,34 @@
-from fastapi import FastAPI, HTTPException, Depends, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
+from datetime import timedelta
+
+from app.auth.jwt_handler import create_access_token, get_current_user, fake_user, Token
+from app.routes.todos import router as todo_router
+from config.settings import settings
 
 app = FastAPI()
 
-# Security setup
-security = HTTPBearer()
-DUMMY_TOKEN = "secrettoken123"  # this is your "password" for now
-
-def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    if credentials.credentials != DUMMY_TOKEN:
+# Login route
+@app.post("/login", response_model=Token)
+def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    if form_data.username != fake_user["email"] or form_data.password != fake_user["password"]:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing token",
+            detail="Invalid email or password",
+            headers={"WWW-Authenticate": "Bearer"},
         )
-    return True
 
-class Todo(BaseModel):
-    id: int
-    title: str
-    description: str | None = None
-    completed: bool = False
-    
-todos: list[Todo] = []
-
-@app.get("/", status_code=200)
-def read_root():
-    return {"Hello": "World"}
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": fake_user["email"]}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
-@app.get("/todos", response_model=list[Todo], status_code=200)
-def get_todos():
-    return todos
+# Protected example route
+# @app.get("/protected")
+# def protected_route(user: dict = Depends(get_current_user)):
+#     return {"message": f"Hello {user['email']}, you accessed a protected route!"}
 
-@app.post("/todos", response_model=Todo, status_code=201)
-def create_todo(todo: Todo):
-    todos.append(todo)
-    return todo
-
-@app.get("/todos/{todo_id}", response_model=Todo, status_code=200)
-def get_todo(todo_id: int):
-    for todo in todos:
-        if todo.id == todo_id:
-            return todo
-    raise HTTPException(status_code=404, detail="Todo not found")
-    
-@app.put("/todos/{todo_id}", response_model=Todo, status_code=200)
-def update_todo(todo_id: int, updated_todo: Todo,  authorized: bool = Depends(verify_token)):
-    for index, todo in enumerate(todos):
-        if todo.id == todo_id:
-            todos[index] = updated_todo
-            return updated_todo
-    raise HTTPException(status_code=404, detail="Todo not found")
-
-@app.delete("/todos/{todo_id}", status_code=204)
-def delete_todo(todo_id: int, authorized: bool = Depends(verify_token)):
-    for index, todo in enumerate(todos):
-        if todo.id == todo_id:
-            todos.pop(index)
-            return
-    raise HTTPException(status_code=404, detail="Todo not found")
-        
+# ✅ Register todo routes
+app.include_router(todo_router)
