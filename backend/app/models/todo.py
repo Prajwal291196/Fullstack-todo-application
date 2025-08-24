@@ -1,7 +1,7 @@
 # backend/app/models/todo.py
 from sqlalchemy import Integer, String, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
-from app.db.database import Base
+from app.database.database import Base
 
 class Todo(Base):
     __tablename__ = "todos"

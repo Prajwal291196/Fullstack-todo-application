@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from app.db.database import get_db
+from app.database.database import get_db
 from app.models.todo import Todo
+from app.models.users import User
 from app.schemas.todo import TodoCreate, TodoUpdate, TodoOut
 from pydantic import BaseModel
 from typing import List
@@ -42,7 +43,7 @@ def create_todo(payload: TodoCreate, db: Session = Depends(get_db)):
 
 # 📌 PUT update todo (protected)
 @router.put("/{todo_id}", response_model=TodoOut )
-def update_todo(todo_id: int, payload: TodoUpdate, db: Session = Depends(get_db), # current_user: dict = Depends(get_current_user)  # enable when ready
+def update_todo(todo_id: int, payload: TodoUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)# current_user: dict = Depends(get_current_user)  # enable when ready
 ):
     todo = db.get(Todo, todo_id)
     if not todo:

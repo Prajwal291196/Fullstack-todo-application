@@ -5,8 +5,9 @@ from sqlalchemy import pool
 
 from alembic import context
 
-from app.db.database import Base  # our Base
+from app.database.database import Base  # our Base
 from app.models import todo as todo_model  # ensure models are imported
+from app.models import users as user_model  # ensure models are imported
 from config.settings import settings
 
 
