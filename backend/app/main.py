@@ -45,29 +45,22 @@ app.add_middleware(
 @app.post("/register")
 def register_user(user: user.UserCreate, db: Session = Depends(get_db)):
     # Check if username/email already exists
-    db_user = db.query(User).filter(
-        (User.username == user.username) | 
-        (User.email == user.email)
-    ).first()
+    try:
+        # check if user exists
+        db_user = db.query(User).filter(User.username == user.username).first()
+        if db_user:
+            raise HTTPException(status_code=400, detail="Username already registered")
 
-    if db_user:
-        raise HTTPException(status_code=400, detail="Username or email already registered")
+        hashed_password = get_password_hash(user.password)
+        new_user = User(username=user.username, hashed_password=hashed_password)
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
 
-    # Hash password
-    hashed_pw = get_password_hash(user.password)
-
-    # Create new user
-    new_user = User(
-        username=user.username,
-        # email=user.email,
-        hashed_password=hashed_pw,
-    )
-
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-
-    return {"message": "User registered successfully", "id": new_user.id}
+        return new_user
+    except Exception as e:
+        print("❌ Error in register:", e)
+        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
 
 @app.post("/login", response_model=Token)
 def login(user: user.UserLogin, db: Session = Depends(get_db)):
@@ -76,7 +69,7 @@ def login(user: user.UserLogin, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password",
-            headers={"WWW-Authenticate": "Bearer"},
+            # headers={"WWW-Authenticate": "Bearer"},
         )
 
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
