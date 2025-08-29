@@ -1,5 +1,4 @@
 import { useState } from "react";
-import axios from "axios";
 
 export default function Login({ onLogin }) {
   const [isLogin, setIsLogin] = useState(true);
@@ -12,39 +11,19 @@ export default function Login({ onLogin }) {
     e.preventDefault();
     const endpoint = isLogin ? "/login" : "/register";
 
-    // const res = await fetch(`http://127.0.0.1:8000${endpoint}`, {
-    //   method: "POST",
-    //   headers: { "Content-Type": "application/json" },
-    //   body: JSON.stringify({ username, password }), // add email if register
-    // });
+    const res = await fetch(`http://127.0.0.1:8000${endpoint}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }), // add email if register
+    });
 
-    // const data = await res.json();
-    // console.log(data);
-    // if (isLogin && data.access_token) {
-    //   onLogin()
-    //   localStorage.setItem("token", data.access_token);
-    // }
-    // else { setError(true) }
-    try {
-      const res = await axios.post(`http://127.0.0.1:8000${endpoint}`, {
-        username,
-        password,
-        // email: email   // add this when registering
-      });
-
-      const data = res.data;  // axios automatically parses JSON
-      console.log(data);
-
-      if (isLogin && data.access_token) {
-        onLogin();
-        localStorage.setItem("token", data.access_token);
-      } else {
-        setError(true);
-      }
-    } catch (err) {
-      console.error("Error:", err.response?.data || err.message);
-      setError(true);
+    const data = await res.json();
+    console.log(data);
+    if (isLogin && data.access_token) {
+      onLogin()
+      localStorage.setItem("token", JSON.stringify(data.access_token));
     }
+    else { setError(true) }
   };
 
   const handleUserName = (e) => {

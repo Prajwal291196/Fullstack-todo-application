@@ -6,7 +6,7 @@ from app.models.users import User
 from app.schemas.todo import TodoCreate, TodoUpdate, TodoOut
 from pydantic import BaseModel
 from typing import List
-from app.auth.jwt_handler import get_current_user
+from app.auth import jwt_handler
 
 router = APIRouter(prefix="/todos", tags=["Todos"])
 
@@ -22,16 +22,18 @@ router = APIRouter(prefix="/todos", tags=["Todos"])
 
 # 📌 GET all todos (public)
 @router.get("/", response_model=List[TodoOut])
-def list_todos(db: Session = Depends(get_db)):
-    return db.query(Todo).all()
+def list_todos(db: Session = Depends(get_db),
+               current_user: User = Depends(jwt_handler.get_current_user)):
+    return db.query(Todo).filter(Todo.owner_id == current_user.id).all()
 # def get_todos():
 #     return todos
 
 
 # 📌 POST new todo (public for now)
 @router.post("/", response_model=TodoOut, status_code=status.HTTP_201_CREATED)
-def create_todo(payload: TodoCreate, db: Session = Depends(get_db)):
-    todo = Todo(title=payload.title, completed=payload.completed)
+def create_todo(payload: TodoCreate, db: Session = Depends(get_db),
+    current_user: User = Depends(jwt_handler.get_current_user)):
+    todo = Todo(title=payload.title, completed=payload.completed, owner_id=current_user.id)
     db.add(todo)
     db.commit()
     db.refresh(todo)
@@ -43,9 +45,11 @@ def create_todo(payload: TodoCreate, db: Session = Depends(get_db)):
 
 # 📌 PUT update todo (protected)
 @router.put("/{todo_id}", response_model=TodoOut )
-def update_todo(todo_id: int, payload: TodoUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)# current_user: dict = Depends(get_current_user)  # enable when ready
+def update_todo(todo_id: int, payload: TodoUpdate, db: Session = Depends(get_db), current_user: User = Depends(jwt_handler.get_current_user)# current_user: dict = Depends(get_current_user)  # enable when ready
 ):
     todo = db.get(Todo, todo_id)
+    if todo.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not your todo")
     if not todo:
         raise HTTPException(status_code=404, detail="Todo not found")
 
@@ -53,6 +57,7 @@ def update_todo(todo_id: int, payload: TodoUpdate, db: Session = Depends(get_db)
         todo.title = payload.title
     if payload.completed is not None:
         todo.completed = payload.completed
+    todo.owner_id=current_user.id
 
     db.commit()
     db.refresh(todo)
@@ -68,11 +73,14 @@ def update_todo(todo_id: int, payload: TodoUpdate, db: Session = Depends(get_db)
 # 📌 DELETE todo (protected)
 @router.delete("/{todo_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_todo(
+    
     todo_id: int,
     db: Session = Depends(get_db),
     # current_user: dict = Depends(get_current_user)  # enable when ready
 ):
     todo = db.get(Todo, todo_id)
+    if todo.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not your todo")
     if not todo:
         raise HTTPException(status_code=404, detail="Todo not found")
     db.delete(todo)

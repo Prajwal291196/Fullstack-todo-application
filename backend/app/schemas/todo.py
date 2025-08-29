@@ -13,5 +13,6 @@ class TodoUpdate(BaseModel):
 
 class TodoOut(TodoBase):
     id: int
+    owner_id: int
     class Config:
         from_attributes = True  # Pydantic v2: replaces orm_mode
